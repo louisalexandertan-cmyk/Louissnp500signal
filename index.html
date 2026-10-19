@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S&amp;P 500 Daily Signals</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--text:#1c1c1a;--muted:#6b6b66;--line:#e4e4df;--buy:#0f7b4a;--sell:#c2362b;--hold:#77776f}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--card:#1f1f1d;--text:#ececE8;--muted:#9a9a93;--line:#34342f;--buy:#4cc38a;--sell:#ef7467;--hold:#9a9a93}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:960px;margin:0 auto;padding:20px 14px 40px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+button,input{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 12px}
+button.on{background:var(--text);color:var(--bg)}
+input{flex:1;min-width:140px}
+.wrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+.sym{font-weight:600}.nm{display:block;color:var(--muted);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.pill{padding:2px 9px;border-radius:99px;font-size:12px;font-weight:700;border:1px solid currentColor}
+.BUY{color:var(--buy)}.SELL{color:var(--sell)}.HOLD{color:var(--hold)}
+.msg{padding:24px;color:var(--muted)}
+.foot{margin-top:14px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>S&amp;P 500 Daily Signals</h1>
+<div class="sub" id="meta">Loading…</div>
+<div class="bar" id="tabs"></div>
+<div class="bar"><input id="q" placeholder="Search symbol, company or sector"></div>
+<div class="wrap"><table><thead><tr>
+<th>Stock</th><th>Signal</th><th>Price</th><th>Day</th><th>RSI</th><th>Score</th><th>Stop</th><th>Target</th>
+</tr></thead><tbody id="rows"></tbody></table><div class="msg" id="msg" hidden></div></div>
+<div class="foot">Updated daily at 15:00 WIB from the previous US close. Rules-based indicators (trend, MACD, RSI). Not financial advice.</div>
+</main>
+<script>
+let all=[],filter="ALL";
+const $=id=>document.getElementById(id);
+const n=(v,d=2)=>v==null?"–":Number(v).toFixed(d);
+function draw(){
+  const q=$("q").value.trim().toLowerCase();
+  const list=all.filter(x=>(filter==="ALL"||x.signal===filter)&&(!q||(x.symbol+x.name+x.sector).toLowerCase().includes(q)));
+  $("rows").innerHTML=list.map(x=>`<tr><td><span class="sym">${x.symbol}</span><span class="nm">${x.name}</span></td>
+  <td><span class="pill ${x.signal}">${x.signal}</span></td><td>${n(x.price)}</td>
+  <td class="${x.chg>=0?"BUY":"SELL"}">${x.chg>=0?"+":""}${n(x.chg)}%</td><td>${n(x.rsi,0)}</td>
+  <td>${x.score>0?"+":""}${x.score}</td><td>${n(x.stop)}</td><td>${n(x.target)}</td></tr>`).join("");
+  $("msg").hidden=list.length>0; if(!list.length)$("msg").textContent="No matches.";
+}
+function tabs(){
+  $("tabs").innerHTML=["ALL","BUY","SELL","HOLD"].map(t=>{
+    const c=t==="ALL"?all.length:all.filter(x=>x.signal===t).length;
+    return `<button class="${t===filter?"on":""}" data-t="${t}">${t[0]+t.slice(1).toLowerCase()} (${c})</button>`}).join("");
+  document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{filter=b.dataset.t;tabs();draw()});
+}
+$("q").oninput=draw;
+fetch("signals.json?t="+Date.now()).then(r=>r.json()).then(d=>{
+  all=d.signals;
+  const g=new Date(d.generated).toLocaleString("en-GB",{timeZone:"Asia/Jakarta",dateStyle:"medium",timeStyle:"short"});
+  $("meta").textContent=`Based on US close of ${d.as_of} · ${d.count} stocks · generated ${g} WIB`;
+  tabs();draw();
+}).catch(()=>{$("meta").textContent="";$("msg").hidden=false;
+  $("msg").textContent="Couldn’t load signals.json. Run python scan.py first, and open the page through a web server (python -m http.server) or GitHub Pages."});
+</script>
+</body>
+</html>
